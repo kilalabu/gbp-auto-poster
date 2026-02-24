@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Write(**)",
+      "Edit(**)",
+      "Bash(node -e:*)",
+      "Bash(npm install:*)",
+      "Bash(npx tsc:*)",
+      "Bash(gh api:*)",
+      "Bash(chmod:*)",
+      "Bash(npm run build:*)",
+      "Bash(npm test:*)",
+      "Bash(eval:*)",
+      "Bash(mkdir:*)",
+      "Bash(ls:*)"
+    ]
+  }
+}
