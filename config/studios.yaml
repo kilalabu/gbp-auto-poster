@@ -1,0 +1,20 @@
+studios:
+  - id: studio-beat-24h
+    name: Studio Beat 24h
+    calendarId: "xxxxxxxxxxxxxxxxxxxxxxxxxx@group.calendar.google.com"
+    accountId: "accounts/123456789012"   # GBP のアカウントID (accounts/数字)
+    locationId: "locations/987654321098" # GBP のロケーションID (locations/数字)
+    bookingUrl: "https://yoyakuru.jp/studio-beat-24h"
+    timezone: "Asia/Tokyo"
+    peakHours:
+      weekday:
+        start: 17
+        end: 21
+      weekend:
+        start: 13
+        end: 17
+    keywords:
+      - "天満橋"
+      - "24時間営業"
+      - "年中無休"
+      - "レンタルスタジオ"
