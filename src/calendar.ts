@@ -152,7 +152,7 @@ export async function getAvailability(
  * @param busyIntervals 予約済み区間の配列（順不同でOK、内部でソートする）
  * @param tz            ISO 文字列変換用のタイムゾーン
  */
-function calcFreeSlots(
+export function calcFreeSlots(
   dayStart: number,
   dayEnd: number,
   busyIntervals: Array<[number, number]>,

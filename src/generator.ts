@@ -17,7 +17,7 @@
 import dayjs from 'dayjs';
 import timezone from 'dayjs/plugin/timezone';
 import utc from 'dayjs/plugin/utc';
-import type { AvailabilityResult } from './calendar';
+import type { AvailabilityResult, TimeSlot } from './calendar';
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -45,6 +45,20 @@ function pick<T>(arr: T[]): T {
 /** 数値の時刻を「〇時」形式に変換（例: 17 → "17時"） */
 function formatHour(h: number): string {
   return `${h}時`;
+}
+
+/**
+ * TimeSlot[] を「〇時〜〇時、〇時〜〇時」形式に変換する。
+ * CASE A・CASE C の投稿文に埋め込む空き枠文字列の生成に使用する。
+ */
+export function slotsToString(slots: TimeSlot[], tz: string): string {
+  return slots
+    .map(s => {
+      const st = dayjs(s.start).tz(tz).hour();
+      const en = dayjs(s.end).tz(tz).hour();
+      return `${st}時〜${en}時`;
+    })
+    .join('、');
 }
 
 /**
@@ -82,13 +96,7 @@ export function generatePost(
     // ── CASE A: ピーク時間帯に空きあり ──
     // 「今すぐ使える人気枠」として緊急感を出す訴求
     // peakFreeSlots を「〇時〜〇時」形式に整形して投稿文に埋め込む
-    const slotStr = peakFreeSlots
-      .map(s => {
-        const st = dayjs(s.start).tz(studio.timezone).hour();
-        const en = dayjs(s.end).tz(studio.timezone).hour();
-        return `${st}時〜${en}時`;
-      })
-      .join('、');
+    const slotStr = slotsToString(peakFreeSlots, studio.timezone);
 
     const templates = [
       `【本日${peakStartStr}〜${peakEndStr}に空きあり】${todayLabel}、天満橋の24時間営業・年中無休レンタルスタジオ Studio Beat 24h に空きが出ました！お仕事帰りの個人練習や直前のダンス練習にすぐ対応可能です。空き枠: ${slotStr}`,
@@ -102,14 +110,7 @@ export function generatePost(
     // ── CASE C: その他の空き ──
     // ピーク枠は埋まっているが空き自体はある状態
     // 最大3枠まで表示して「今日も使えます」という情報発信
-    const slotStr = freeSlots
-      .slice(0, 3) // 枠が多すぎると投稿文が長くなるので先頭3件に絞る
-      .map(s => {
-        const st = dayjs(s.start).tz(studio.timezone).hour();
-        const en = dayjs(s.end).tz(studio.timezone).hour();
-        return `${st}時〜${en}時`;
-      })
-      .join('、');
+    const slotStr = slotsToString(freeSlots.slice(0, 3), studio.timezone); // 先頭3件に絞る
 
     const templates = [
       `【${todayLabel} 空き時間帯のご案内】天満橋の24時間営業・年中無休レンタルスタジオ Studio Beat 24h の本日空き情報です。現在ご利用いただける枠: ${slotStr}。キーボックスで非対面入室できます。`,
