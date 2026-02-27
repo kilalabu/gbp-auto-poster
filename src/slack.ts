@@ -22,7 +22,7 @@ interface NotifyParams {
  * Slack Webhook へ失敗時のみ通知する。
  *
  * 失敗時の通知例:
- *   ❌ [Studio Beat 24h] GBP 投稿失敗
+ *   ❌ [Studio Beat] GBP 投稿失敗
  *   日付: 2026-02-25
  *   エラー: HTTP 403: ...
  *   リトライ: 実施済み（失敗）

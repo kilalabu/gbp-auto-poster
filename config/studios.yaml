@@ -1,6 +1,6 @@
 studios:
-  - id: studio-beat-24h
-    name: Studio Beat 24h
+  - id: studio-beat
+    name: Studio Beat
     calendarId: "${STUDIO_BEAT_CALENDAR_ID}"
     bookingUrl: "https://lin.ee/6VBkm4gD"
     timezone: "Asia/Tokyo"

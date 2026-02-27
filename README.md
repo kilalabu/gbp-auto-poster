@@ -4,7 +4,7 @@ Googleカレンダーの予約状況をもとに、Googleビジネスプロフ�
 
 ## 概要
 
-Studio Beat 24h（天満橋の24時間営業レンタルスタジオ）の空き状況を毎朝 **08:00 JST** に自動取得し、状況に応じた投稿文を生成して GBP へ投稿する。GitHub Actions でスケジュール実行するため、サーバー不要で運用できる。
+Studio Beat（天満橋の24時間営業レンタルスタジオ）の空き状況を毎朝 **08:00 JST** に自動取得し、状況に応じた投稿文を生成して GBP へ投稿する。GitHub Actions でスケジュール実行するため、サーバー不要で運用できる。
 
 ### 投稿の3パターン
 
@@ -175,10 +175,10 @@ Make.com が GBP への投稿を代行するため、Make.com 側でシナリオ
 
 ```yaml
 studios:
-  - id: studio-beat-24h
-    name: Studio Beat 24h
+  - id: studio-beat
+    name: Studio Beat
     calendarId: "${STUDIO_BEAT_CALENDAR_ID}"  # 環境変数で展開（実際の値は .env に記載）
-    bookingUrl: "https://yoyakuru.jp/studio-beat-24h"
+    bookingUrl: "https://yoyakuru.jp/studio-beat"
     timezone: "Asia/Tokyo"
     peakHours:
       weekday: { start: 17, end: 21 }
