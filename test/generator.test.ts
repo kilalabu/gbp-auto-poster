@@ -2,8 +2,8 @@
  * generator.test.ts
  *
  * slotsToString と generatePost のユニットテスト。
- * - slotsToString: TimeSlot[] → 「〇時〜〇時」形式の文字列変換
- * - generatePost: CASE A/B/C の分岐、slotStr の正確性、フッターの付与
+ * - slotsToString: TimeSlot[] → 「HH:mm - HH:mm」形式（改行区切り）の文字列変換
+ * - generatePost: CASE A/B/C の分岐、slotStr のフッター埋め込み、テンプレート選択
  */
 
 import { describe, it, expect } from 'vitest';
@@ -39,20 +39,20 @@ describe('slotsToString', () => {
     expect(slotsToString([], TZ)).toBe('');
   });
 
-  it('1件 → 「〇時〜〇時」形式', () => {
-    expect(slotsToString([makeSlot(17, 21)], TZ)).toBe('17時〜21時');
+  it('1件 → 「HH:mm - HH:mm」形式', () => {
+    expect(slotsToString([makeSlot(17, 21)], TZ)).toBe('17:00 - 21:00');
   });
 
-  it('複数件 → 読点区切りで連結', () => {
-    expect(slotsToString([makeSlot(17, 18), makeSlot(19, 21)], TZ)).toBe('17時〜18時、19時〜21時');
+  it('複数件 → 改行区切りで連結', () => {
+    expect(slotsToString([makeSlot(17, 18), makeSlot(19, 21)], TZ)).toBe('17:00 - 18:00\n19:00 - 21:00');
   });
 
-  it('深夜帯（0時〜3時）も正しく変換', () => {
-    expect(slotsToString([makeSlot(0, 3)], TZ)).toBe('0時〜3時');
+  it('深夜帯（0時〜3時）もゼロパディングされた形式で変換', () => {
+    expect(slotsToString([makeSlot(0, 3)], TZ)).toBe('00:00 - 03:00');
   });
 
   it('土日ピーク帯（13時〜17時）も正しく変換', () => {
-    expect(slotsToString([makeSlot(13, 17)], TZ)).toBe('13時〜17時');
+    expect(slotsToString([makeSlot(13, 17)], TZ)).toBe('13:00 - 17:00');
   });
 });
 
@@ -74,16 +74,19 @@ describe('generatePost CASE B', () => {
     expect(result).toMatch(/穴場|終日|ゆとり/);
   });
 
-  it('SEO キーワードを含む', () => {
-    const result = generatePost(availability, STUDIO);
-    expect(result).toContain('24時間営業');
-    expect(result).toContain('年中無休');
-    expect(result).toContain('天満橋');
+  it('天満橋キーワードを含む', () => {
+    expect(generatePost(availability, STUDIO)).toContain('天満橋');
   });
 
-  it('共通フッターを含む', () => {
+  it('freeSlots の時刻がフッターに含まれる', () => {
     const result = generatePost(availability, STUDIO);
-    expect(result).toContain('24時間即時予約・キーボックスで非対面入室可能');
+    expect(result).toContain('00:00 - 23:00');
+  });
+
+  it('共通フッターの設備案内を含む', () => {
+    const result = generatePost(availability, STUDIO);
+    expect(result).toContain('スマホ用三脚や大型鏡、ヨガマットも無料で使えます');
+    expect(result).toContain('✅ ご予約は公式LINEから！');
   });
 });
 
@@ -92,7 +95,7 @@ describe('generatePost CASE B', () => {
 // ─────────────────────────────────────────────
 
 describe('generatePost CASE A', () => {
-  it('平日ピーク空き枠（17時〜19時）が投稿文に含まれる', () => {
+  it('平日ピーク空き枠（17:00〜19:00）がフッターに含まれる', () => {
     const availability: AvailabilityResult = {
       case: 'A',
       freeSlots: [makeSlot(17, 21)],
@@ -100,10 +103,10 @@ describe('generatePost CASE A', () => {
       isWeekend: false,
       todayLabel: '2月27日(金)',
     };
-    expect(generatePost(availability, STUDIO)).toContain('17時〜19時');
+    expect(generatePost(availability, STUDIO)).toContain('17:00 - 19:00');
   });
 
-  it('複数のピーク空き枠が読点区切りで含まれる', () => {
+  it('複数のピーク空き枠が改行区切りでフッターに含まれる', () => {
     const availability: AvailabilityResult = {
       case: 'A',
       freeSlots: [makeSlot(17, 18), makeSlot(19, 21)],
@@ -112,12 +115,10 @@ describe('generatePost CASE A', () => {
       todayLabel: '2月27日(金)',
     };
     const result = generatePost(availability, STUDIO);
-    expect(result).toContain('17時〜18時');
-    expect(result).toContain('19時〜21時');
-    expect(result).toContain('、');
+    expect(result).toContain('17:00 - 18:00\n19:00 - 21:00');
   });
 
-  it('土日ピーク空き枠（13時〜17時）が投稿文に含まれる', () => {
+  it('土日ピーク空き枠（13:00〜17:00）がフッターに含まれる', () => {
     const availability: AvailabilityResult = {
       case: 'A',
       freeSlots: [makeSlot(13, 17)],
@@ -125,10 +126,10 @@ describe('generatePost CASE A', () => {
       isWeekend: true,
       todayLabel: '3月1日(日)',
     };
-    expect(generatePost(availability, STUDIO)).toContain('13時〜17時');
+    expect(generatePost(availability, STUDIO)).toContain('13:00 - 17:00');
   });
 
-  it('共通フッターを含む', () => {
+  it('天満橋キーワードを含む', () => {
     const availability: AvailabilityResult = {
       case: 'A',
       freeSlots: [makeSlot(17, 21)],
@@ -136,7 +137,20 @@ describe('generatePost CASE A', () => {
       isWeekend: false,
       todayLabel: '2月27日(金)',
     };
-    expect(generatePost(availability, STUDIO)).toContain('24時間即時予約・キーボックスで非対面入室可能');
+    expect(generatePost(availability, STUDIO)).toContain('天満橋');
+  });
+
+  it('共通フッターの設備案内を含む', () => {
+    const availability: AvailabilityResult = {
+      case: 'A',
+      freeSlots: [makeSlot(17, 21)],
+      peakFreeSlots: [makeSlot(17, 21)],
+      isWeekend: false,
+      todayLabel: '2月27日(金)',
+    };
+    const result = generatePost(availability, STUDIO);
+    expect(result).toContain('スマホ用三脚や大型鏡、ヨガマットも無料で使えます');
+    expect(result).toContain('✅ ご予約は公式LINEから！');
   });
 });
 
@@ -145,7 +159,7 @@ describe('generatePost CASE A', () => {
 // ─────────────────────────────────────────────
 
 describe('generatePost CASE C', () => {
-  it('空き枠の時刻が投稿文に含まれる', () => {
+  it('空き枠の時刻がフッターに含まれる', () => {
     const availability: AvailabilityResult = {
       case: 'C',
       freeSlots: [makeSlot(9, 12), makeSlot(14, 16)],
@@ -154,11 +168,11 @@ describe('generatePost CASE C', () => {
       todayLabel: '2月27日(金)',
     };
     const result = generatePost(availability, STUDIO);
-    expect(result).toContain('9時〜12時');
-    expect(result).toContain('14時〜16時');
+    expect(result).toContain('09:00 - 12:00');
+    expect(result).toContain('14:00 - 16:00');
   });
 
-  it('空き枠が4件以上あっても先頭3件のみ表示される', () => {
+  it('空き枠が4件以上あっても先頭3件のみフッターに表示される', () => {
     const availability: AvailabilityResult = {
       case: 'C',
       freeSlots: [
@@ -172,13 +186,13 @@ describe('generatePost CASE C', () => {
       todayLabel: '2月27日(金)',
     };
     const result = generatePost(availability, STUDIO);
-    expect(result).toContain('1時〜3時');
-    expect(result).toContain('5時〜7時');
-    expect(result).toContain('9時〜11時');
-    expect(result).not.toContain('13時〜15時');
+    expect(result).toContain('01:00 - 03:00');
+    expect(result).toContain('05:00 - 07:00');
+    expect(result).toContain('09:00 - 11:00');
+    expect(result).not.toContain('13:00 - 15:00');
   });
 
-  it('共通フッターを含む', () => {
+  it('天満橋キーワードを含む', () => {
     const availability: AvailabilityResult = {
       case: 'C',
       freeSlots: [makeSlot(9, 12)],
@@ -186,6 +200,19 @@ describe('generatePost CASE C', () => {
       isWeekend: false,
       todayLabel: '2月27日(金)',
     };
-    expect(generatePost(availability, STUDIO)).toContain('24時間即時予約・キーボックスで非対面入室可能');
+    expect(generatePost(availability, STUDIO)).toContain('天満橋');
+  });
+
+  it('共通フッターの設備案内を含む', () => {
+    const availability: AvailabilityResult = {
+      case: 'C',
+      freeSlots: [makeSlot(9, 12)],
+      peakFreeSlots: [],
+      isWeekend: false,
+      todayLabel: '2月27日(金)',
+    };
+    const result = generatePost(availability, STUDIO);
+    expect(result).toContain('スマホ用三脚や大型鏡、ヨガマットも無料で使えます');
+    expect(result).toContain('✅ ご予約は公式LINEから！');
   });
 });
