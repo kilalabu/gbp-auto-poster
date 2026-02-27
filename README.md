@@ -27,7 +27,8 @@ Studio Beat 24h（天満橋の24時間営業レンタルスタジオ）の空き
 | パッケージ管理 | pnpm |
 | TS 実行 | tsx |
 | Google API | googleapis（Calendar + OAuth2） |
-| GBP 投稿 | Node.js 組み込み fetch（mybusiness v4 API 直接呼び出し） |
+| GBP 投稿 | Make.com Custom Webhook 経由（Make.com が GBP API を呼び出す） |
+| ワークフロー自動化 | Make.com（無料枠: 1,000 オペレーション/月） |
 | 日付処理 | dayjs + timezone/utc プラグイン |
 | 実行環境 | GitHub Actions（ubuntu-latest） |
 
@@ -39,7 +40,7 @@ Studio Beat 24h（天満橋の24時間営業レンタルスタジオ）の空き
 .
 ├── .github/workflows/auto-post.yml  # GitHub Actions（毎日 08:00 JST 自動実行）
 ├── config/
-│   └── studios.yaml                 # 店舗設定（カレンダーID・GBP ID・予約URL等）
+│   └── studios.yaml                 # 店舗設定（calendarId は環境変数参照、git 管理対象）
 ├── src/
 │   ├── index.ts                     # メインエントリ（店舗ごとにループ処理）
 │   ├── calendar.ts                  # Googleカレンダー取得・空き枠算出
@@ -85,13 +86,10 @@ mise use --global pnpm@10
 | API | 用途 |
 |---|---|
 | Google Calendar API | カレンダーのイベント取得 |
-| My Business Business Information API | GBP 店舗情報取得 |
-| Google My Business API (v4) | GBP への localPosts 投稿 |
 
-> **⚠️ GBP API のクォータ申請**
+> **GBP 投稿について**
 >
-> Google My Business API（v4）は申請が必要な場合があり、承認前は 403 エラーになる。
-> [Google Business Profile API アクセスリクエスト](https://developers.google.com/my-business/content/prereqs) を確認して申請する。
+> GBP への投稿は Make.com が代行するため、GBP 関連の API を GCP で有効化する必要はない。
 
 #### 1-3. OAuth2 クライアント ID を作成
 
@@ -112,7 +110,6 @@ mise use --global pnpm@10
 >
 > 設定するスコープ:
 > - `https://www.googleapis.com/auth/calendar.readonly`
-> - `https://www.googleapis.com/auth/business.manage`
 
 ---
 
@@ -135,7 +132,9 @@ cp .env.example .env
 ```env
 GOOGLE_CLIENT_ID=1234567890-abcdefghij.apps.googleusercontent.com
 GOOGLE_CLIENT_SECRET=GOCSPX-xxxxxxxxxxxxxxxxxxxxxxxxx
-GOOGLE_REFRESH_TOKEN=   # ← ステップ3で設定
+GOOGLE_REFRESH_TOKEN=      # ← ステップ3で設定
+STUDIO_BEAT_CALENDAR_ID=   # ← Googleカレンダー設定 > カレンダーの統合 > カレンダー ID
+MAKE_WEBHOOK_URL=          # ← ステップ4（Make.com 設定）で取得
 SLACK_WEBHOOK_URL=https://hooks.slack.com/services/xxx/yyy/zzz
 ```
 
@@ -160,7 +159,17 @@ refresh_token: 1//0xxxxxxxxxx...
 
 ---
 
-### ステップ 4: studios.yaml を設定
+### ステップ 4: Make.com シナリオを設定
+
+Make.com が GBP への投稿を代行するため、Make.com 側でシナリオを1回だけ手動設定する必要がある。
+
+詳細な設定手順は [`docs/manual/Make.com設定手順.md`](docs/manual/Make.com設定手順.md) を参照。
+
+設定が完了すると **Webhook URL**（例: `https://hook.eu2.make.com/xxxxxxxxxx`）が発行される。この URL を `.env` の `MAKE_WEBHOOK_URL` に設定する。
+
+---
+
+### ステップ 5: studios.yaml を設定
 
 `config/studios.yaml` に実際の店舗情報を記入する。
 
@@ -168,9 +177,7 @@ refresh_token: 1//0xxxxxxxxxx...
 studios:
   - id: studio-beat-24h
     name: Studio Beat 24h
-    calendarId: "xxxx@group.calendar.google.com"  # Googleカレンダーの設定から確認
-    accountId: "accounts/123456789012"             # GBP のアカウントID
-    locationId: "locations/987654321098"           # GBP のロケーションID
+    calendarId: "${STUDIO_BEAT_CALENDAR_ID}"  # 環境変数で展開（実際の値は .env に記載）
     bookingUrl: "https://yoyakuru.jp/studio-beat-24h"
     timezone: "Asia/Tokyo"
     peakHours:
@@ -186,20 +193,15 @@ studios:
 **カレンダー ID の確認方法:**
 [Googleカレンダー設定](https://calendar.google.com/calendar/r/settings) →「マイカレンダー」→ 対象カレンダー →「カレンダーの統合」→「カレンダー ID」
 
-**GBP の accountId / locationId の確認方法（アクセストークン取得後）:**
-```bash
-# アカウント一覧
-curl -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
-  https://mybusinessaccountmanagement.googleapis.com/v1/accounts
+取得した値を `.env` の `STUDIO_BEAT_CALENDAR_ID` に設定する。`studios.yaml` への直接記載は不要。
 
-# ロケーション一覧
-curl -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
-  "https://mybusinessbusinessinformation.googleapis.com/v1/accounts/YOUR_ACCOUNT_ID/locations"
-```
+> **GBP の投稿先店舗について**
+>
+> 投稿先アカウント・店舗は Make.com シナリオ内で固定選択する（ステップ 4 参照）。`studios.yaml` への GBP ID の記載は不要。
 
 ---
 
-### ステップ 5: ローカルで動作確認
+### ステップ 6: ローカルで動作確認
 
 ```bash
 pnpm start
@@ -209,7 +211,7 @@ GBP への投稿と Slack 通知が実行されれば成功。
 
 ---
 
-### ステップ 6: GitHub Secrets を設定
+### ステップ 7: GitHub Secrets を設定
 
 GitHub リポジトリの「Settings」→「Secrets and variables」→「Actions」から以下を登録する。
 
@@ -218,6 +220,8 @@ GitHub リポジトリの「Settings」→「Secrets and variables」→「Actio
 | `GOOGLE_CLIENT_ID` | GCP OAuth2 クライアント ID |
 | `GOOGLE_CLIENT_SECRET` | GCP OAuth2 クライアントシークレット |
 | `GOOGLE_REFRESH_TOKEN` | ステップ 3 で取得したリフレッシュトークン |
+| `STUDIO_BEAT_CALENDAR_ID` | Google カレンダー ID（ステップ 5 参照） |
+| `MAKE_WEBHOOK_URL` | ステップ 4（Make.com 設定）で取得した Webhook URL |
 | `SLACK_WEBHOOK_URL` | Slack Incoming Webhook URL |
 
 GitHub Actions の「Actions」タブ →「GBP Auto Post」→「Run workflow」で手動実行して動作確認する。
@@ -246,9 +250,15 @@ GitHub Actions の「Actions」タブ →「GBP Auto Post」→「Run workflow�
 
 ## トラブルシューティング
 
-### `403 Forbidden` (GBP API)
+### Make.com でエラーが出る場合
 
-GBP API のクォータ申請が完了していない。[ステップ 1-2](#1-2-必要な-api-を有効化) を参照して申請する。
+`docs/manual/Make.com設定手順.md` のトラブルシューティングセクションを参照。
+
+### GitHub Actions で `HTTP 4xx` エラーが出る場合
+
+- `MAKE_WEBHOOK_URL` が GitHub Secrets に正しく登録されているか確認する
+- Make.com シナリオが ON になっているか確認する
+- Make.com の無料枠（月 1,000 オペレーション）が上限に達していないか確認する
 
 ### `invalid_grant` (OAuth2)
 
@@ -257,12 +267,13 @@ GBP API のクォータ申請が完了していない。[ステップ 1-2](#1-2-
 - **OAuth 同意画面が「テスト」モードのまま**: [ステップ 1-4](#1-4-oauth-同意画面を公開in-productionに設定) を参照して「アプリを公開」に変更し、`pnpm run auth` を再実行する
 - **6ヶ月以上未使用**: `pnpm run auth` でトークンを再取得し、`.env` と GitHub Secrets の `GOOGLE_REFRESH_TOKEN` を更新する
 
-### `calendar not found`
+### `calendar not found` / `Missing environment variable: STUDIO_BEAT_CALENDAR_ID`
 
-`config/studios.yaml` の `calendarId` が誤っている。Googleカレンダーの設定から正しい ID を確認する。
+`.env`（ローカル）または GitHub Secrets（Actions）の `STUDIO_BEAT_CALENDAR_ID` が未設定か誤っている。Googleカレンダーの設定から正しいカレンダー ID を確認して設定する。
 
 ### ローカルで `pnpm start` を実行しても投稿されない
 
-1. `.env` の値がすべて設定されているか確認する
+1. `.env` の値がすべて設定されているか確認する（`STUDIO_BEAT_CALENDAR_ID`・`MAKE_WEBHOOK_URL` を含む）
 2. `node --version` で Node.js 24 以上が使われているか確認する
 3. `pnpm install` が完了しているか確認する
+4. Make.com シナリオが ON になっているか確認する

@@ -31,10 +31,9 @@ import { google } from 'googleapis';
 const PORT = 3000;
 const REDIRECT_URI = `http://localhost:${PORT}/callback`;
 
-/** 取得するスコープ（カレンダー読み取り + GBP 管理） */
+/** 取得するスコープ（カレンダー読み取りのみ。GBP 投稿は Make.com 経由のため不要） */
 const SCOPES = [
   'https://www.googleapis.com/auth/calendar.readonly',
-  'https://www.googleapis.com/auth/business.manage',
 ];
 
 async function main(): Promise<void> {

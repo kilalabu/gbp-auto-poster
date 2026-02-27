@@ -32,8 +32,6 @@ interface StudioConfig {
   id: string;          // 識別子（ログ・デバッグ用）
   name: string;        // 店舗名（Slack 通知・投稿文に使用）
   calendarId: string;  // Google Calendar の calendarId
-  accountId: string;   // GBP アカウントID（"accounts/数字" 形式）
-  locationId: string;  // GBP ロケーションID（"locations/数字" 形式）
   bookingUrl: string;  // 予約URL（CTA ボタンのリンク先）
   timezone: string;    // タイムゾーン（例: "Asia/Tokyo"）
   peakHours: PeakHours;
@@ -65,6 +63,16 @@ async function main(): Promise<void> {
   // カレントディレクトリから読むので、pnpm start はプロジェクトルートで実行すること
   const yamlContent = readFileSync('config/studios.yaml', 'utf-8');
   const { studios } = parse(yamlContent) as StudiosYaml;
+
+  // calendarId に "${VAR_NAME}" 形式の参照が含まれる場合、環境変数で展開する
+  for (const studio of studios) {
+    const match = studio.calendarId.match(/^\$\{(.+)\}$/);
+    if (match) {
+      const val = process.env[match[1]];
+      if (!val) throw new Error(`Missing environment variable: ${match[1]}`);
+      studio.calendarId = val;
+    }
+  }
 
   // ── 3. OAuth2 クライアントの初期化 ──
   // Google Calendar API の認証に使用する（GBP 投稿は Make.com 経由のため不要）
@@ -99,8 +107,6 @@ async function main(): Promise<void> {
 
       // Make.com Webhook 経由で GBP に投稿（エラー時は内部で1回リトライ）
       const result = await createLocalPost({
-        accountId: studio.accountId,
-        locationId: studio.locationId,
         postText,
         bookingUrl: studio.bookingUrl,
         webhookUrl: makeWebhookUrl,

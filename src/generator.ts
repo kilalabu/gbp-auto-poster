@@ -35,7 +35,7 @@ export interface StudioGeneratorConfig {
 
 /** 全 CASE の末尾に共通で付与する CTA 文言 */
 const FOOTER =
-  '\n\n24時間即時予約・スマートロックで非対面入室可能。\n下記のBOOKボタンから今すぐご予約いただけます。';
+  '\n\n24時間即時予約・キーボックスで非対面入室可能。\n下記の予約ボタンから今すぐご予約いただけます。';
 
 /** 配列からランダムに1要素を返すユーティリティ */
 function pick<T>(arr: T[]): T {
@@ -93,7 +93,7 @@ export function generatePost(
     const templates = [
       `【本日${peakStartStr}〜${peakEndStr}に空きあり】${todayLabel}、天満橋の24時間営業・年中無休レンタルスタジオ Studio Beat 24h に空きが出ました！お仕事帰りの個人練習や直前のダンス練習にすぐ対応可能です。空き枠: ${slotStr}`,
       `【${todayLabel} ${peakStartStr}台に空き】天満橋の年中無休・24時間営業レンタルスタジオに本日ピーク時間帯の空きがあります（${slotStr}）。仕事・学校帰りにそのままスタジオへどうぞ。即時予約OK。`,
-      `【今日の${peakStartStr}〜空き情報】${todayLabel}の人気時間帯（${slotStr}）に空きが出ました。天満橋から好アクセスの24時間営業・年中無休レンタルスタジオ。直前予約でもスマートロックですぐ入室できます。`,
+      `【今日の${peakStartStr}〜空き情報】${todayLabel}の人気時間帯（${slotStr}）に空きが出ました。天満橋から好アクセスの24時間営業・年中無休レンタルスタジオ。直前予約でもキーボックスですぐ入室できます。`,
       `【${peakStartStr}〜${peakEndStr} 空き速報】${todayLabel}、天満橋 Studio Beat 24h の人気時間帯に空きあり（${slotStr}）。24時間営業・年中無休なので急な予定にも対応。今すぐご予約ください。`,
     ];
     body = pick(templates);
@@ -112,7 +112,7 @@ export function generatePost(
       .join('、');
 
     const templates = [
-      `【${todayLabel} 空き時間帯のご案内】天満橋の24時間営業・年中無休レンタルスタジオ Studio Beat 24h の本日空き情報です。現在ご利用いただける枠: ${slotStr}。スマートロックで非対面入室できます。`,
+      `【${todayLabel} 空き時間帯のご案内】天満橋の24時間営業・年中無休レンタルスタジオ Studio Beat 24h の本日空き情報です。現在ご利用いただける枠: ${slotStr}。キーボックスで非対面入室できます。`,
       `【本日の空き状況】${todayLabel}、天満橋の年中無休・24時間営業スタジオに空きがあります（${slotStr}）。練習・撮影・リハーサルなど用途に合わせてご利用ください。`,
       `【${todayLabel} スタジオ空き情報】天満橋 Studio Beat 24h の空き時間帯: ${slotStr}。24時間営業・年中無休なので急な予定でもご安心ください。即時予約可能です。`,
       `【本日ご利用いただける枠】${todayLabel}の空き: ${slotStr}。天満橋の24時間営業・年中無休レンタルスタジオで、個人練習からグループリハーサルまで対応しています。`,
