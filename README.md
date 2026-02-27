@@ -183,11 +183,6 @@ studios:
     peakHours:
       weekday: { start: 17, end: 21 }
       weekend: { start: 13, end: 17 }
-    keywords:
-      - "天満橋"
-      - "24時間営業"
-      - "年中無休"
-      - "レンタルスタジオ"
 ```
 
 **カレンダー ID の確認方法:**

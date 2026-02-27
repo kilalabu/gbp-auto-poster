@@ -35,7 +35,6 @@ interface StudioConfig {
   bookingUrl: string;  // 予約URL（CTA ボタンのリンク先）
   timezone: string;    // タイムゾーン（例: "Asia/Tokyo"）
   peakHours: PeakHours;
-  keywords: string[];  // SEO キーワード（現在は generator.ts のテンプレートに直書き）
 }
 
 /** studios.yaml のルート構造 */
