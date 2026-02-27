@@ -1,16 +1,18 @@
 /**
  * gbp.ts
  *
- * Google Business Profile (GBP) の localPosts エンドポイントへ投稿するモジュール。
+ * Make.com の Custom Webhook 経由で Google Business Profile に投稿するモジュール。
  *
- * 【重要】使用する API エンドポイントについて:
- *   GBP への投稿（localPosts）は `mybusiness v4` API を使用する。
- *   googleapis npm パッケージに含まれる `mybusinessbusinessinformation` v1 は
- *   店舗情報（business information）専用であり、localPosts リソースを持たない。
- *   そのため、Node.js 組み込みの fetch で直接 HTTP リクエストを送信する。
+ * 【アーキテクチャ変更の背景】
+ *   GBP API (mybusiness v4) を直接叩くには Google のパートナー審査が必要で、
+ *   個人では Organization アカウントの取得が困難なため、
+ *   すでに Google の審査を通過済みの Make.com を踏み台として利用する。
+ *
+ *   このモジュールは生成した投稿テキストを Make.com の Webhook URL に POST するだけで、
+ *   実際の GBP API 呼び出しは Make.com 側のシナリオが担う。
  *
  * エラーハンドリング:
- *   API エラー時は 10 秒待機して 1 回だけリトライする。
+ *   Webhook エラー時は 10 秒待機して 1 回だけリトライする。
  *   リトライでも失敗した場合は success: false を返す（例外は投げない）。
  */
 
@@ -20,7 +22,7 @@ export interface LocalPostParams {
   locationId: string; // "locations/987654321098" 形式（同上）
   postText: string;   // generator.ts が生成した投稿テキスト
   bookingUrl: string; // CTA ボタンのリンク先（予約サイト URL）
-  accessToken: string; // OAuth2 アクセストークン（index.ts で取得）
+  webhookUrl: string; // Make.com Custom Webhook URL（環境変数 MAKE_WEBHOOK_URL から渡す）
 }
 
 /** createLocalPost の戻り値 */
@@ -36,40 +38,41 @@ function sleep(ms: number): Promise<void> {
 }
 
 /**
- * GBP localPosts エンドポイントへ投稿する。
+ * Make.com Webhook 経由で GBP に投稿する。
  * エラー時は 10 秒後に 1 回だけリトライする。
  */
 export async function createLocalPost(params: LocalPostParams): Promise<PostResult> {
-  const { accountId, locationId, postText, bookingUrl, accessToken } = params;
+  const { accountId, locationId, postText, bookingUrl, webhookUrl } = params;
 
-  // accountId = "accounts/123456789012"、locationId = "locations/987654321098" をそのまま結合
-  // → https://mybusiness.googleapis.com/v4/accounts/123456789012/locations/987654321098/localPosts
-  const url = `https://mybusiness.googleapis.com/v4/${accountId}/${locationId}/localPosts`;
+  // 投稿タイトル: 投稿文の先頭にある【...】を抽出してタイトルとして使う
+  // 例: "【本日穴場です】本日2月25日..." → "本日穴場です"
+  // Make.com の "Call to action" Post type で Title フィールドが必須のため送信する
+  const titleMatch = postText.match(/^【(.+?)】/);
+  const title = titleMatch ? titleMatch[1] : postText.slice(0, 40);
 
-  // GBP localPost のリクエストボディ
+  // Make.com シナリオに渡すペイロード
+  // Make.com 側でこの JSON を受け取り、GBP の Create a Post モジュールにマッピングする
   const body = JSON.stringify({
-    languageCode: 'ja',
-    summary: postText, // 投稿本文
-    callToAction: {
-      actionType: 'BOOK', // 予約ボタン
-      url: bookingUrl,
-    },
-    topicType: 'STANDARD', // 通常の投稿（イベント・特典などではない）
+    accountId,   // Make.com の "Location Name" フィールド構築用: {{1.accountId}}/{{1.locationId}}
+    locationId,  // 同上
+    title,       // Make.com の "Title" フィールドにマッピング: {{1.title}}
+    text: postText,      // Make.com の "Summary" フィールドにマッピング: {{1.text}}
+    bookingUrl,  // Make.com の "Call to Action URL" フィールドにマッピング: {{1.bookingUrl}}
   });
 
   // 1回目の試行
-  const result = await attempt(url, body, accessToken);
+  const result = await attempt(webhookUrl, body);
 
   if (result.ok) {
     return { success: true, retried: false };
   }
 
-  // 失敗 → 10 秒待機してリトライ（429 レート制限や 500 系の一時エラーに対応）
-  console.error(`GBP API error (${result.status}): ${result.errorText}. Retrying in 10s...`);
+  // 失敗 → 10 秒待機してリトライ（一時的なネットワークエラーや Make.com の過負荷に対応）
+  console.error(`Make.com Webhook error (${result.status}): ${result.errorText}. Retrying in 10s...`);
   await sleep(10_000);
 
   // 2回目（最終）の試行
-  const retry = await attempt(url, body, accessToken);
+  const retry = await attempt(webhookUrl, body);
   if (retry.ok) {
     return { success: true, retried: true };
   }
@@ -89,12 +92,10 @@ export async function createLocalPost(params: LocalPostParams): Promise<PostResu
 async function attempt(
   url: string,
   body: string,
-  accessToken: string,
 ): Promise<{ ok: boolean; status: number; errorText: string }> {
   const response = await fetch(url, {
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${accessToken}`, // OAuth2 Bearer トークン
       'Content-Type': 'application/json',
     },
     body,

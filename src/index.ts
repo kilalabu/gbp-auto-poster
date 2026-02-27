@@ -3,11 +3,10 @@
  *
  * 処理フロー（店舗ごとにループ）:
  *   1. 環境変数と studios.yaml を読み込む
- *   2. OAuth2 アクセストークンを取得
- *   3. Google Calendar から当日の空き状況を取得（calendar.ts）
- *   4. 空き状況に応じた投稿テキストを生成（generator.ts）
- *   5. GBP localPosts エンドポイントへ投稿（gbp.ts）
- *   6. 結果を Slack に通知（slack.ts）
+ *   2. Google Calendar から当日の空き状況を取得（calendar.ts）
+ *   3. 空き状況に応じた投稿テキストを生成（generator.ts）
+ *   4. Make.com Webhook 経由で GBP に投稿（gbp.ts）
+ *   5. 結果を Slack に通知（slack.ts）
  *
  * 1店舗でも失敗した場合は process.exit(1) で終了し、
  * GitHub Actions の Run を失敗ステータスにする。
@@ -51,11 +50,15 @@ async function main(): Promise<void> {
   const clientId = process.env.GOOGLE_CLIENT_ID;
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
   const refreshToken = process.env.GOOGLE_REFRESH_TOKEN;
+  const makeWebhookUrl = process.env.MAKE_WEBHOOK_URL;
 
   if (!clientId || !clientSecret || !refreshToken) {
     throw new Error(
       'Missing required environment variables: GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REFRESH_TOKEN',
     );
+  }
+  if (!makeWebhookUrl) {
+    throw new Error('Missing required environment variable: MAKE_WEBHOOK_URL');
   }
 
   // ── 2. 店舗設定の読み込み ──
@@ -64,16 +67,10 @@ async function main(): Promise<void> {
   const { studios } = parse(yamlContent) as StudiosYaml;
 
   // ── 3. OAuth2 クライアントの初期化 ──
-  // リフレッシュトークンをセットしておくことで、
-  // getAccessToken() が呼ばれるたびに自動でアクセストークンを取得・更新する
+  // Google Calendar API の認証に使用する（GBP 投稿は Make.com 経由のため不要）
+  // リフレッシュトークンをセットしておくことで、自動でアクセストークンを取得・更新する
   const oauth2Client = new google.auth.OAuth2(clientId, clientSecret);
   oauth2Client.setCredentials({ refresh_token: refreshToken });
-
-  // アクセストークンを事前に1回取得して有効性を確認
-  const { token: accessToken } = await oauth2Client.getAccessToken();
-  if (!accessToken) {
-    throw new Error('Failed to obtain access token from refresh token');
-  }
 
   let hasError = false; // いずれかの店舗で失敗した場合に true になる
 
@@ -100,13 +97,13 @@ async function main(): Promise<void> {
 
       console.log(`[${studio.name}] 投稿文 (${postText.length}文字):\n${postText}`);
 
-      // GBP localPosts エンドポイントへ投稿（エラー時は内部で1回リトライ）
+      // Make.com Webhook 経由で GBP に投稿（エラー時は内部で1回リトライ）
       const result = await createLocalPost({
         accountId: studio.accountId,
         locationId: studio.locationId,
         postText,
         bookingUrl: studio.bookingUrl,
-        accessToken,
+        webhookUrl: makeWebhookUrl,
       });
 
       // 投稿結果を Slack に通知（成功・失敗いずれも送信）
