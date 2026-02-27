@@ -246,6 +246,15 @@ GitHub Actions の「Actions」タブ →「GBP Auto Post」→「Run workflow�
 
 `config/studios.yaml` の `studios` 配列に店舗を追加するだけでコード変更不要。
 
+ただし、`calendarId` は環境変数参照（`"${VAR_NAME}"` 形式）で記載するため、**店舗ごとに新しい環境変数の追加が必要**。
+
+**追加手順:**
+
+1. `config/studios.yaml` に新しい店舗エントリを追加（例: `calendarId: "${NEW_STUDIO_CALENDAR_ID}"`）
+2. `.env`（ローカル）に `NEW_STUDIO_CALENDAR_ID=xxxx@group.calendar.google.com` を追記
+3. GitHub Secrets に `NEW_STUDIO_CALENDAR_ID` を登録
+4. `.github/workflows/auto-post.yml` の `env:` ブロックに `NEW_STUDIO_CALENDAR_ID: ${{ secrets.NEW_STUDIO_CALENDAR_ID }}` を追記
+
 ---
 
 ## トラブルシューティング
