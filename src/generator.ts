@@ -57,7 +57,7 @@ export function slotsToString(slots: TimeSlot[], tz: string): string {
  * 設備案内・LINE 誘導・空き時間帯の一覧を含む。
  */
 function makeFooter(slotStr: string): string {
-  return `\n\n🕒 空き時間：\n${slotStr}\n\nスマホ用三脚や大型鏡、ヨガマットも無料で使えます。\n公式LINEにて不定期クーポン配布中！\n\n✅ ご予約は公式LINEから！`;
+  return `\n\n🕒 ピックアップ空き枠：\n${slotStr}\n\nスマホ用三脚や大型鏡、ヨガマットも無料で使えます。\n公式LINEにて不定期クーポン配布中！\n\n✅ ご予約は公式LINEから！`;
 }
 
 /**
