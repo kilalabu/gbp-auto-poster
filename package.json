@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "start": "tsx src/index.ts",
+    "analyze": "tsx src/analyze-history.ts",
     "auth": "tsx scripts/auth.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
