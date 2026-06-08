@@ -13,7 +13,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
         with:
-          version: latest
+          version: 10   # メジャー固定。11系での破壊的変更による突然死を防ぐ
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
