@@ -159,6 +159,9 @@ async function main(): Promise<void> {
   const oauth2Client = new google.auth.OAuth2(clientId, clientSecret);
   oauth2Client.setCredentials({ refresh_token: refreshToken });
 
+  // node-fetch の "Premature close" を回避するため Node 標準 fetch を使わせる（index.ts と同様）
+  oauth2Client.transporter.defaults.fetchImplementation = fetch;
+
   const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
 
   const toDate = dayjs();

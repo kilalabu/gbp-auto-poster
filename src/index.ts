@@ -20,6 +20,7 @@ import { getAvailability } from './calendar';
 import { generatePost } from './generator';
 import { createLocalPost } from './gbp';
 import { notify } from './slack';
+import { withRetry, isRetryableError } from './retry';
 
 /** studios.yaml のピーク時間帯設定 */
 interface PeakHours {
@@ -79,6 +80,13 @@ async function main(): Promise<void> {
   const oauth2Client = new google.auth.OAuth2(clientId, clientSecret);
   oauth2Client.setCredentials({ refresh_token: refreshToken });
 
+  // gaxios(googleapis のHTTP層)はデフォルトで node-fetch を使うが、node-fetch は
+  // Node 24 環境で "Premature close"（接続途中切断）を頻発させる。
+  // → 2026-06-26〜の連続失敗の根本原因。
+  // Node 標準の fetch(undici) を使わせて node-fetch 経路を完全に回避する。
+  // この transporter はトークン取得・Calendar API の両方で共有されるため一括で効く。
+  oauth2Client.transporter.defaults.fetchImplementation = fetch;
+
   let hasError = false; // いずれかの店舗で失敗した場合に true になる
 
   // ── 4. 店舗ごとにループ処理 ──
@@ -87,11 +95,24 @@ async function main(): Promise<void> {
 
     try {
       // カレンダーから空き状況を取得（CASE A/B/C を判定）
-      const availability = await getAvailability(
-        oauth2Client,
-        studio.calendarId,
-        studio.peakHours,
-        studio.timezone,
+      // 一過性の接続断（Premature close 等）に備え、指数バックオフで最大3回リトライする。
+      const availability = await withRetry(
+        () =>
+          getAvailability(
+            oauth2Client,
+            studio.calendarId,
+            studio.peakHours,
+            studio.timezone,
+          ),
+        {
+          isRetryable: isRetryableError,
+          onRetry: (err, attempt, delayMs) => {
+            const m = err instanceof Error ? err.message : String(err);
+            console.warn(
+              `[${studio.name}] カレンダー取得失敗 (試行${attempt}): ${m} — ${delayMs}ms後に再試行...`,
+            );
+          },
+        },
       );
 
       console.log(`[${studio.name}] Availability case: CASE ${availability.case}`);
